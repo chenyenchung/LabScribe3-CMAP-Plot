@@ -1,6 +1,5 @@
 ####### Experiment Paramenters ################
 frameNum <- 25 #How many frames to plot after stimulation
-<<<<<<< HEAD
 mvoltS <- 3 #starting stimulation mA
 mvoltE <- 8 #final stimulation mA
 
@@ -14,18 +13,7 @@ smoothening <- 10 #To smoothen the curve or not (no smoothing = 0)
 idColor <- "aliceblue" #line color for individual stimulation
 meanColor <- "black" #line color for mean signal per stimulation
 meanLwd <- 1.8 #line thickness for mean signal per stimulation
-=======
-mvoltS <- 3 #starting stimulation mV
-mvoltE <- 8 #final stimulation mV
 
-saveTable <- FALSE #If you want to save the table, type TRUE here
-
-####### Graph Options #########################
-lwl <- -15 #lower y-axis limit for graphs
-upl <- 15 #uppler y-axis limit for graphs
-idColor <- "pink" #line color for individual stimulation
-meanColor <- "purple" #line color for mean signal per stimulation
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
 
 #Loading required packages
 dplyrEx <- require(dplyr)
@@ -33,18 +21,11 @@ if(!dplyrEx){
   install.packages("dplyr")
   library(dplyr)
 }
-
 ggplotEx <- require(ggplot2)
-<<<<<<< HEAD
 if(!ggplotEx){
-=======
-if(!dplyrEx){
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
   install.packages("ggplot2")
   library(ggplot2)
 }
-
-<<<<<<< HEAD
 rs2Ex <- require(reshape2)
 if(!rs2Ex){
   install.packages("reshape2")
@@ -84,8 +65,7 @@ if(!is.logical(drawGraphs)){
   warning("If you want to save the graphs, put TRUE in drawGraphs.")
   stop()
 }
-=======
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
+
 #Setting Working Folder
 if(!exists("pickFolder")){
   exFileName <- file.choose()
@@ -111,7 +91,6 @@ for (stimN in c(1:length(rStim))) {
   rawTable$ROI[rStim[stimN]:(rStim[stimN] + frameNum - 1)] <- rawTable$ROI[rStim[stimN]]
   stimTable <- rbind(stimTable, rawTable[rStim[stimN]:(rStim[stimN] + frameNum - 1),])
 }
-<<<<<<< HEAD
 
 #Adding sample number, assay date, and sample type to data frame
 if(!"SampleName" %in% colnames(stimTable)){
@@ -126,14 +105,6 @@ stimTable$Batch <- as.factor(stimTable$Batch)
 if (!"msTime" %in% colnames(stimTable)) {
   stimTable$msTime <- stimTable$Time * 1000
 }
-=======
-rm(rawTable) #Clearing imported rawdata to save memory
-
-#Adding sample number and assay date to data frame
-splitPos <- regexpr("\\ \\(", stimTable$FileName)
-stimTable$SampleName <- factor(substr(stimTable$FileName, 1, splitPos-1))
-stimTable$Date <- factor(substr(stimTable$FileName, splitPos + 2, splitPos + 9))
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
 
 #Separate differnt mouse
 splNum <- levels(stimTable$SampleName)
@@ -143,17 +114,12 @@ for (i in c(1:length(splNum))) {
 }
 
 #Creating Relative Timeline to stimulation for plotting
-<<<<<<< HEAD
 timeList <- stimTable$msTime[1:frameNum] - stimTable$msTime[1]
-=======
-timeList <- stimTable$Time[1:frameNum] - stimTable$Time[1]
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
 
 #Plotting as you go
 if (!dir.exists("./Graphs")) {
   dir.create("Graphs")
 }
-<<<<<<< HEAD
 if (drawGraphs) {
   for (j in c(1:length(splNum))) {
     for (l in c(1:length(levels(splLst[[j]]$Batch)))){
@@ -288,31 +254,3 @@ if (saveTable) {
       )
     }}
 }
-=======
-for (j in c(1:length(splNum))) {
-  for (i in c(mvoltS:mvoltE)) {
-    plotTemp <- as.data.frame(matrix(splLst[[j]]$EMG[(splLst[[j]]$ROI == i)], nrow = frameNum))
-    plotTemp$relTime <- timeList
-    plotTempSP <- apply(plotTemp, 2,spline, n = ncol(plotTemp)*10) #smoothen the line
-    pdf(paste0("./Graphs/",paste("The",splNum[j],"on",i,"mV",".pdf", sep = "\ ")))
-    plot(x = plotTempSP[["relTime"]][[2]], y = plotTempSP[[1]][[2]],
-         ylim = c(lwl,upl),
-         xlim = c(0,timeList[frameNum]*1.2),
-         xlab = "Relative Time to Stimulation",
-         ylab = "mV",
-         cex.lab = 1.2,
-         font.lab = 2,
-         col = "white", frame = FALSE,
-         main = paste("The",splNum[j],"on",i,"mV", sep = "\ "))
-    for (k in c(1:(length(plotTempSP)-1))) {
-      if (length(plotTempSP) > 1) {
-        lines(x = plotTempSP[["relTime"]][[2]], y = plotTempSP[[k]][[2]], col = idColor)
-      }
-      if (length(plotTempSP) > 1) {
-        lines(x = plotTempSP[["relTime"]][[2]],
-              y = spline(rowMeans(plotTemp[,-ncol(plotTemp)]), n = ncol(plotTemp)*10)[[2]],
-              col = meanColor, lwd = 1.8)}
-    }
-    dev.off()
-  }}
->>>>>>> c66bcfd8bb623f6ea495be5d44ad0f8b6cc410d3
