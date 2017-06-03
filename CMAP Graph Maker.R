@@ -1,21 +1,24 @@
-####### Experiment Paramenters ################
-frameNum <- 25 #How many frames to plot after stimulation
-mvoltS <- 3 #starting stimulation mA
-mvoltE <- 8 #final stimulation mA
+####### Experiment Paramenters  ################
+frameNum <- 30  # How many frames to plot
+prelude <- 5  # How many frames before stimulation
+mAs <- 3  # starting stimulation mA
+mAE <- 8  # final stimulation mA
 
-saveTable <- TRUE #If you want to save the summary table, type TRUE here
-drawGraphs <- TRUE #If you want to save the graphs, type TRUE here
+####### Analysis Paramenters  ##################
+saveTable <- TRUE  # If you want to save the summary table, type TRUE here
+drawGraphs <- TRUE  # If you want to save the graphs, type TRUE here
 batchTagging <- "20170603"
-####### Graph Options #########################
-lwl <- -15 #lower y-axis limit for graphs
-upl <- 15 #uppler y-axis limit for graphs
-smoothening <- 10 #To smoothen the curve or not (no smoothing = 0)
-idColor <- "aliceblue" #line color for individual stimulation
-meanColor <- "black" #line color for mean signal per stimulation
-meanLwd <- 1.8 #line thickness for mean signal per stimulation
+splitChr <- "\\ \\("
 
+####### Graph Options  #########################
+lwl <- -15  # lower y-axis limit for graphs
+upl <- 15  # uppler y-axis limit for graphs
+smoothening <- 10  # To smoothen the curve or not (no smoothing = 0)
+idColor <- "aliceblue"  # line color for individual stimulation
+meanColor <- "black"  # line color for mean signal per stimulation
+meanLwd <- 1.8  # line thickness for mean signal per stimulation
 
-#Loading required packages
+####### Loading required packages  #############
 dplyrEx <- require(dplyr)
 if(!dplyrEx){
   install.packages("dplyr")
@@ -26,22 +29,26 @@ if(!ggplotEx){
   install.packages("ggplot2")
   library(ggplot2)
 }
-rs2Ex <- require(reshape2)
+rs2Ex <- require(reshape2)  ## Is this necessary?
 if(!rs2Ex){
   install.packages("reshape2")
   library(reshape2)
 }
 
-#Varible type check
+# Varible type check
 if(!is.numeric(frameNum)){
   warning("Frame number should be a number!")
   stop()
 }
-if(!is.numeric(mvoltS)){
+if(!is.numeric(prelude)){
+  warning("Prelude should be a number!")
+  stop()
+}
+if(!is.numeric(mAs)){
   warning("Stimulation should be a number!")
   stop()
 }
-if(!is.numeric(mvoltE)){
+if(!is.numeric(mAE)){
   warning("Stimulation should be a number!")
   stop()
 }
@@ -66,55 +73,79 @@ if(!is.logical(drawGraphs)){
   stop()
 }
 
-#Setting Working Folder
+####### Start of Analysis ##########
+
+# Setting Working Folder
 if(!exists("pickFolder")){
   exFileName <- file.choose()
   setwd(dirname(exFileName))
   pickFolder <- TRUE
 }
 
-#Loading raw data
+# Loading raw data
 fList <- Sys.glob("*.txt")
 rawTable <- do.call("rbind",
                     lapply(fList,
                            function(fn) data.frame(FileName = fn,
                                                    read.table(fn, header = TRUE, fill = TRUE,
-                                                              stringsAsFactors = FALSE))))
+                                                              stringsAsFactors = FALSE,
+                                                              comment.char = ""))))
+
+# Removing repetitive header generated in data export
+rawTable <- rawTable[grep("[^0-9\\.\\,-]", rawTable$Time, invert = TRUE),]
+
 rawTable$Time <- as.numeric(rawTable$Time)
 rawTable$EMG <- as.numeric(rawTable$EMG)
 rawTable$Stim <- as.numeric(rawTable$Stim)
 
+
+
 rStim <- which(!rawTable$Stim == 0)
-rawTable$ROI <- rawTable$Stim
-stimTable <- NULL
-for (stimN in c(1:length(rStim))) {
-  rawTable$ROI[rStim[stimN]:(rStim[stimN] + frameNum - 1)] <- rawTable$ROI[rStim[stimN]]
-  stimTable <- rbind(stimTable, rawTable[rStim[stimN]:(rStim[stimN] + frameNum - 1),])
+rawTable$ROI <- 0  # Labeling the region of interest around stimulation
+rawTable$fNum <- 0  # Counting the frame number in ROI
+
+# Filling ROIs for further analysis
+fill_roi <- function(x, txt, pos, rep){
+  for(i in c(1:length(pos))){
+    x[c(pos[i]:(pos[i] + rep -1))] <- txt[i]
+  }
+  return(x)
 }
 
-#Adding sample number, assay date, and sample type to data frame
-if(!"SampleName" %in% colnames(stimTable)){
-  splitPos <- regexpr("\\ \\(", stimTable$FileName)
-  stimTable$SampleName <- substr(stimTable$FileName, 1, splitPos-1)
-}
-stimTable$SampleName <- as.factor(stimTable$SampleName)
-if (!"Batch" %in% colnames(stimTable)) {
-  stimTable$Batch <-batchTagging
-}
-stimTable$Batch <- as.factor(stimTable$Batch)
-if (!"msTime" %in% colnames(stimTable)) {
-  stimTable$msTime <- stimTable$Time * 1000
+fill_fnum <- function(x, pos, rep) {
+  for(i in c(1:length(pos))){
+    x[c(pos[i]:(pos[i] + rep -1))] <- seq(rep)
+  }
+  return(x)
 }
 
-#Separate differnt mouse
-splNum <- levels(stimTable$SampleName)
-splLst <- NULL
-for (i in c(1:length(splNum))) {
-  splLst[[i]] <- stimTable[stimTable$SampleName == splNum[i],]
+rawTable$ROI <- fill_roi(rawTable$ROI,
+                         rawTable$Stim[rStim],
+                         rStim - prelude,
+                         frameNum)
+
+rawTable$fNum <- fill_fnum(rawTable$fNum, rStim - prelude, frameNum)
+
+# Adding sample number, assay date, and sample type to data frame
+if(!"SampleName" %in% colnames(rawTable)){
+  splitPos <- regexpr(splitChr, rawTable$FileName)
+  rawTable$SampleName <- substr(rawTable$FileName, 1, splitPos-1)
 }
+rawTable$SampleName <- as.factor(rawTable$SampleName)
+
+if (!"Batch" %in% colnames(rawTable)) {
+  rawTable$Batch <-batchTagging
+}
+rawTable$Batch <- as.factor(rawTable$Batch)
+
+if (!"msTime" %in% colnames(rawTable)) {
+  rawTable$msTime <- rawTable$Time * 1000
+}
+
+wTable <- tbl_df(rawTable)
 
 #Creating Relative Timeline to stimulation for plotting
-timeList <- stimTable$msTime[1:frameNum] - stimTable$msTime[1]
+timeList <- rawTable$msTime[1:frameNum] - rawTable$msTime[1]
 
 #Plotting as you go
 if (!dir.exists("./Graphs")) {
@@ -123,7 +154,7 @@ if (!dir.exists("./Graphs")) {
 if (drawGraphs) {
   for (j in c(1:length(splNum))) {
     for (l in c(1:length(levels(splLst[[j]]$Batch)))){
-      for (i in c(mvoltS:mvoltE)){
+      for (i in c(mAs:mAE)){
         checkId <- (splLst[[j]]$ROI == i) &
                     (splLst[[j]]$Batch == levels(splLst[[j]]$Batch)[l])
         plotTemp <- as.data.frame(
@@ -164,7 +195,7 @@ if(drawGraphs){
     for (k in c(1:length(levels(splLst[[i]]$Batch)))) {
       tempDf <- NULL
       cName <- NULL
-      for (j in c(mvoltS:mvoltE)){
+      for (j in c(mAs:mAE)){
         if(j %in% splLst[[i]]$ROI){
           check <- splLst[[i]]$ROI == j &
             (splLst[[i]]$Batch == levels(splLst[[i]]$Batch)[k])
@@ -212,7 +243,7 @@ if (saveTable) {
   if (!dir.exists("./Tables")) {
     dir.create("Tables")
   }
-  write.table(stimTable,
+  write.table(rawTable,
               paste0("./Tables/",batchTagging, "- Raw ROI table.txt")
               ) #Save raw ROI Table
   #Calculate amplitude and save table
@@ -223,7 +254,7 @@ if (saveTable) {
       stdev <- NULL
       ampsd <- NULL
       ampav <- NULL
-      for (i in c(mvoltS:mvoltE)){
+      for (i in c(mAs:mAE)){
         checkIdsum <- (splLst[[j]]$ROI == i) &
           (splLst[[j]]$Batch == levels(splLst[[j]]$Batch)[l])
         plotTempsum <- as.data.frame(
