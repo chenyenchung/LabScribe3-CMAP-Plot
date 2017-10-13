@@ -1,12 +1,4 @@
 # LabScribe 3 Exported Data Visualizer
-<<<<<<< HEAD
-*It's an amateur practice. With lots of need-to-be-fixed loops.*
-## Right now it can...
-### 2017/6/3
-*Just draw a few milliseconds (you decide) after every single stimulation
-*Draw the mean signal per experiments (one experiment defined as stimulation with one particular voltage), and then save as a pdf graph in your working directory
-*Calculat the average and standard deviation of amplitudes and save it in an individual .txt table
-=======
 It's an amateur practice, originally with lots of need-to-be-fixed loops. Thanks to the use of *dplyr* and the instructions about `apply` functions. Hopefully it works better now.
 
 - Purpose: It draws an overview waveform graph and a summary boxplot of the wave amplitude. Both graphic is faceted by assay time point and sample type
@@ -35,4 +27,3 @@ It's an amateur practice, originally with lots of need-to-be-fixed loops. Thanks
 
 ### 2017/6/27
 * Try to rewrite the script to reduce excessive for-loops, or it is just too messy to maintain... (under construction)
->>>>>>> develop
