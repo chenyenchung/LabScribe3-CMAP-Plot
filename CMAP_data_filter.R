@@ -10,6 +10,12 @@ if(!ggplotEx){
   library(ggplot2)
 }
 
+pipeEx <- require("magrittr")
+if(!pipeEx){
+  install.packages("magrittr")
+  library("magrittr")
+}
+
 #### Custom functions ####
 fill_roi <- function(x, txt, pos, rep){
   for(i in c(1:length(pos))){
@@ -34,14 +40,26 @@ fill_fnum <- function(x, pos, rep) {
 
 posicheck <- function(data, seq) {
   return(sapply(c(1:seq),
-                function(x) (which.max(filter(data, data$Count == x)$EMG) -
-                               which.min(filter(data, data$Count == x)$EMG)) < 0))
+                function(x) ((filter(data, data$Count == x)$EMG %>% which.max) -
+                               (filter(data, data$Count == x)$EMG %>% which.min))))
 }
+
 
 balance <- function(data, seq) {
   return(sapply(c(1:seq),
-                function(x) abs(sum(range(data$EMG[c(((x-1)*30+1):((x-1)*30+30))]))))
-  )
+                function(x) {
+                  range(data$EMG[c(((x-1)*30+1):((x-1)*30+30))]) %>%
+                    sum %>% abs
+                }
+  ))
+}
+
+peakcheck <- function(data, seq) {
+  return(sapply(c(1:seq),
+                function(x) {
+                  raw <- filter(data, data$Count == levels(data$Count)[x])
+                  max(raw$EMG) - min(raw$EMG)
+                }))
 }
 
 ####### Start of Analysis ##########
@@ -110,10 +128,10 @@ for (i in escape) {
 workTable$SampleName <- gsub(pattern = paste0(splitChr,".*$"), "", workTable$FileName)
 
 # Selecting only waves that start with positive value
-posi <- workTable$Count[posicheck(workTable, nlevels(workTable$Count))]
+posi <- workTable$Count[posicheck(workTable, nlevels(workTable$Count)) < 0]
 workTable <- workTable[workTable$Count %in% posi,]
 
-# Take top 5 balanced waves
+# Take top N balanced waves
 subtbl <- split(workTable, list(workTable$SampleName, workTable$ROI))
 logfile <- NULL
 workTable <- do.call(rbind,
@@ -129,31 +147,62 @@ workTable <- do.call(rbind,
            #print(nlevels(data$Count))
            logfile <<- c(logfile, paste("The", amp, "mA", "of", itemname,
                                         "has", nlevels(data$Count), "valid observations."))
-           if(nlevels(data$Count) < pickN){
-             index <- head(order(balance(data,nlevels(data$count)), decreasing = T), nlevels(data$Count))
+           if(nlevels(data$Count) < pickBal){
+             index <- head(order(balance(data,nlevels(data$Count)), decreasing = T), nlevels(data$Count))
              toplist <- levels(data$Count)[index]
              return(data[data$Count %in% toplist,])
            } else {
-             index <- head(order(balance(data,nlevels(data$count)), decreasing = T), n = pickN)
+             index <- head(order(balance(data,nlevels(data$Count)), decreasing = T), n = pickBal)
              toplist <- levels(data$Count)[index]
              return(data[data$Count %in% toplist,])
            }
            
            } else {
-           logfile <<- c(logfile, paste("The", amp, "mA", "of", itemname,
+           logfile <<- c(logfile, paste("**The", amp, "mA", "of", itemname,
                                         "has no valid observations."))
            return(NULL)
            }}))
 
+# and then find the largest M waves
+subtbl <- split(workTable, list(workTable$SampleName, workTable$ROI))
+workTable <- do.call(rbind,
+                     lapply(c(1:length(subtbl)),
+                            function(x) {
+                              data <- subtbl[[x]]
+                              data$Count <- droplevels(data$Count)
+                              if(nlevels(data$Count) > 0){
+                                if(nlevels(data$Count) < pickPeak){
+                                    index <- head(order(peakcheck(data,nlevels(data$Count)), decreasing = T), nlevels(data$Count))
+                                  toplist <- levels(data$Count)[index]
+                                  return(data[data$Count %in% toplist,])
+                                } else {
+                                  index <- head(order(peakcheck(data,nlevels(data$Count)), decreasing = T), n = pickPeak)
+                                  toplist <- levels(data$Count)[index]
+                                  return(data[data$Count %in% toplist,])
+                                }
+                                
+                              } else {
+                                return(NULL)
+                              }}))
+
 # Adding metadata
-workTable$AssayDate <- AssayDate
-workTable$Age <- Age
+workTable$AssayDate <- as.Date(AssayDate,"%Y%m%d")
+workTable$DOB <- gsub("\\(([^()]*)\\)|.", "\\1", workTable$FileName) %>% as.Date(., "%Y%m%d")
+workTable <- mutate(workTable, Age = paste("Week",((AssayDate - DOB)/7) %>% round(., digits = 0)))
 workTable$Type <- "Unknown"
+workTable$Treat <- "None"
+
+# Define sample types (Mock-WT, Mock-ALS, tg-OE, AAV-OE-WT, AAV-OE-ALS)
 sapply(sampletype, function(x){
   workTable$Type[grep(x, workTable$SampleName)] <<- x
   return(NULL)
 })
-workTable$Type[grep(rescue, workTable$SampleName, ignore.case = T)] <- "Rescue"
+sapply(sampletreat, function(x){
+  workTable$Treat[grep(x, workTable$SampleName)] <<- x
+  return(NULL)
+})
+
+workTable <- mutate(workTable, Cat = paste(Type,Treat,sep = "_"))
 
 # Saving files
 if(!dir.exists("~/Desktop/CMAP_data/")){dir.create("~/Desktop/CMAP_data/")}
