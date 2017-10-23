@@ -39,7 +39,7 @@ fill_fnum <- function(x, pos, rep) {
 }
 
 posicheck <- function(data, seq) {
-  return(sapply(c(1:seq),
+  return(sapply(seq,
                 function(x) ((filter(data, data$Count == x)$EMG %>% which.max) -
                                (filter(data, data$Count == x)$EMG %>% which.min))))
 }
@@ -48,8 +48,10 @@ posicheck <- function(data, seq) {
 balance <- function(data, seq) {
   return(sapply(c(1:seq),
                 function(x) {
-                  range(data$EMG[c(((x-1)*30+1):((x-1)*30+30))]) %>%
-                    sum %>% abs
+                  temp <- range(data$EMG[c(((x-1)*30+1):((x-1)*30+30))])
+                  delta <- temp %>% sum %>% abs
+                  norm <- abs(temp[1]-temp[2])
+                  return(delta/norm)
                 }
   ))
 }
@@ -85,12 +87,17 @@ if(!is.numeric(prelude)){
 
 # Loading raw data
 fList <- list.files(pattern = "*.txt")
-rawTable <- do.call("rbind",
-                    lapply(fList,
-                           function(fn) data.frame(FileName = fn,
-                                                   read.table(fn, header = TRUE, fill = TRUE,
-                                                              stringsAsFactors = FALSE,
-                                                              comment.char = ""))))
+rawTable <- lapply(c(1:length(rawTable)), function(x){
+  if("X3" %in% colnames(rawTable[[x]])){
+    temp <- rawTable[[x]][,-which(colnames(rawTable[[x]]) == "X3")]
+  } else {
+    temp <- rawTable[[x]]
+  }
+  colnames(temp)[4] <- "Stim"
+  return(temp)
+})
+
+rawTable <- do.call("rbind",rawTable)
 
 # Removing repetitive header generated in data export
 rawTable <- rawTable[grep("[^0-9\\.\\,-]", rawTable$Time, invert = TRUE),]
@@ -128,7 +135,7 @@ for (i in escape) {
 workTable$SampleName <- gsub(pattern = paste0(splitChr,".*$"), "", workTable$FileName)
 
 # Selecting only waves that start with positive value
-posi <- workTable$Count[posicheck(workTable, nlevels(workTable$Count)) < 0]
+posi <- levels(workTable$Count)[posicheck(workTable, levels(workTable$Count)) < 0]
 workTable <- workTable[workTable$Count %in% posi,]
 
 # Take top N balanced waves
