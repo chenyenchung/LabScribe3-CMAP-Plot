@@ -87,13 +87,18 @@ if(!is.numeric(prelude)){
 
 # Loading raw data
 fList <- list.files(pattern = "*.txt")
+rawTable <- sapply(fList,
+                   function(x) read.table(x, stringsAsFactors = FALSE, fill = TRUE, header = TRUE),
+                   simplify = FALSE)
 rawTable <- lapply(c(1:length(rawTable)), function(x){
-  if("X3" %in% colnames(rawTable[[x]])){
-    temp <- rawTable[[x]][,-which(colnames(rawTable[[x]]) == "X3")]
+  current_table <- rawTable[[x]]
+  extra_col <- "X3" %in% colnames(current_table)
+  if(extra_col){
+    temp <- current_table[, !(colnames(current_table) == "X3")]
   } else {
-    temp <- rawTable[[x]]
+    temp <- current_table
   }
-  colnames(temp)[4] <- "Stim"
+  temp$FileName <- fList[x]
   return(temp)
 })
 
@@ -223,3 +228,4 @@ if(!file.exists(paste0("~/Desktop/CMAP_data/", AssayDate, "_filtered.txt"))){
 } else {
   write.table(workTable, file = paste0("~/Desktop/CMAP_data/", AssayDate, Sys.time(), "_filtered.txt"))
 }
+
