@@ -175,6 +175,9 @@ workTable <- do.call(rbind,
            return(NULL)
            }}))
 
+workTable$balance <- balance(workTable,nlevels(droplevels(workTable$Count)))
+workTable <- filter(workTable, balance < bal_thres)
+
 # and then find the largest M waves
 subtbl <- split(workTable, list(workTable$SampleName, workTable$ROI))
 workTable <- do.call(rbind,
