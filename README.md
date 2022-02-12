@@ -1,4 +1,7 @@
 # LabScribe 3 Exported Data Visualizer
+
+This repo is used for preliminary analysis in [Mir-17∼92 Confers Motor Neuron Subtype Differential Resistance to ALS-Associated Degeneration (Tung et al., 2019)](https://doi.org/10.1016/j.stem.2019.04.016).
+
 It's an amateur practice, originally with lots of need-to-be-fixed loops. Thanks to the use of *dplyr* and the instructions about `apply` functions. Hopefully it works better now.
 
 - Purpose: It draws an overview waveform graph and a summary boxplot of the wave amplitude. Both graphic is faceted by assay time point and sample type
